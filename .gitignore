@@ -1,4 +1,11 @@
-﻿# OS
+﻿# Generated at deploy time by Vercel — do NOT commit
+config.js
+
+# Local secrets — do NOT commit
+.env
+.env.local
+
+# OS
 .DS_Store
 Thumbs.db
 
