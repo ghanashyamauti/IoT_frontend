@@ -1,4 +1,4 @@
-﻿/**
+/**
  * RFID Web Serial Service
  * -------------------------------------------------------------
  * Provides browser <-> ESP32 USB Serial communication using the
@@ -129,6 +129,9 @@ class RfidSerialService {
       if (err.name === 'NotFoundError') {
         // User cancelled the prompt
         return false;
+      }
+      if (err.message && (err.message.includes('Failed to open') || err.message.includes('busy') || err.name === 'NetworkError')) {
+        throw new Error('Port is busy! Please CLOSE the Serial Monitor in Arduino IDE and click Connect again.');
       }
       throw err;
     }
