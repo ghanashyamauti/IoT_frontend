@@ -1,0 +1,818 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance System &mdash; Dashboard</title>
+<meta name="description" content="RFID Attendance Management Dashboard. Real-time employee check-in and check-out tracking.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   DESIGN SYSTEM - LIGHT PROFESSIONAL THEME
+   ========================================================================== */
+:root {
+  --white:     #ffffff;
+  --bg:        #f4f6fa;
+  --surface:   #ffffff;
+  --surface2:  #f8f9fc;
+  --border:    #e4e8f0;
+  --border2:   #d0d7e6;
+  --text:      #111827;
+  --text2:     #374151;
+  --muted:     #6b7280;
+  --faint:     #9ca3af;
+
+  --blue:      #2563eb;
+  --blue-lt:   #eff6ff;
+  --blue-md:   #dbeafe;
+  --green:     #059669;
+  --green-lt:  #ecfdf5;
+  --green-md:  #d1fae5;
+  --red:       #dc2626;
+  --red-lt:    #fef2f2;
+  --red-md:    #fee2e2;
+  --amber:     #d97706;
+  --amber-lt:  #fffbeb;
+  --amber-md:  #fde68a;
+  --indigo:    #4f46e5;
+  --indigo-lt: #eef2ff;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.04);
+}
+
+/* ==========================================================================
+   BASE
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   TOP NAV
+   ========================================================================== */
+.nav {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+  position: sticky; top: 0; z-index: 100;
+}
+.nav-inner {
+  max-width: 1280px; margin: 0 auto;
+  padding: 0 24px;
+  height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 12px;
+}
+.nav-icon {
+  width: 36px; height: 36px; border-radius: var(--radius-md);
+  background: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.35);
+}
+.nav-title {
+  font-size: 17px; font-weight: 700; color: var(--text);
+  letter-spacing: -0.3px;
+}
+.nav-title span { color: var(--blue); }
+.nav-right { display: flex; align-items: center; gap: 10px; }
+.status-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px; font-size: 12.5px; font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  transition: all 0.3s;
+}
+.status-chip.online {
+  background: var(--green-lt); border-color: var(--green-md);
+  color: var(--green);
+}
+.status-chip.offline {
+  background: var(--red-lt); border-color: var(--red-md);
+  color: var(--red);
+}
+.status-pip {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+}
+.status-chip.online .status-pip { animation: pipBlink 2s ease-in-out infinite; }
+@keyframes pipBlink {
+  0%,100%{opacity:1} 50%{opacity:0.4}
+}
+.clock-chip {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px; font-weight: 500;
+  color: var(--text2);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px; padding: 5px 14px;
+}
+
+/* ==========================================================================
+   LAYOUT
+   ========================================================================== */
+.page {
+  max-width: 1280px; margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+
+/* ==========================================================================
+   PAGE HEADING
+   ========================================================================== */
+.page-head {
+  margin-bottom: 24px;
+}
+.page-head h1 {
+  font-size: 22px; font-weight: 700; color: var(--text);
+  letter-spacing: -0.4px;
+}
+.page-head .date-str {
+  font-size: 13px; color: var(--muted); margin-top: 3px;
+}
+
+/* ==========================================================================
+   STAT CARDS
+   ========================================================================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+@media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr}}
+
+.kpi {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 4px;
+  position: relative; overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.kpi:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.kpi-accent {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: var(--kpi-color, var(--blue));
+}
+.kpi-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.kpi-label { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+.kpi-icon {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  background: var(--kpi-bg, var(--blue-lt));
+  color: var(--kpi-color, var(--blue));
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.kpi-value {
+  font-size: 34px; font-weight: 700; letter-spacing: -1px; line-height: 1;
+  color: var(--text);
+}
+.kpi-sub { font-size: 12px; color: var(--muted); }
+
+.kpi[data-color="blue"]  { --kpi-color: var(--blue);  --kpi-bg: var(--blue-lt); }
+.kpi[data-color="green"] { --kpi-color: var(--green); --kpi-bg: var(--green-lt); }
+.kpi[data-color="red"]   { --kpi-color: var(--red);   --kpi-bg: var(--red-lt);  }
+.kpi[data-color="amber"] { --kpi-color: var(--amber); --kpi-bg: var(--amber-lt);}
+
+/* ==========================================================================
+   MAIN CONTENT GRID
+   ========================================================================== */
+.content-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media(max-width:1000px){.content-grid{grid-template-columns:1fr}}
+
+/* ==========================================================================
+   CARD (panel)
+   ========================================================================== */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+}
+.card + .card { margin-top: 16px; }
+
+.card-title {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title-icon {
+  width: 26px; height: 26px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+  background: var(--blue-lt); color: var(--blue);
+}
+
+/* ==========================================================================
+   FORM
+   ========================================================================== */
+.field { margin-bottom: 12px; }
+.field label { display:block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; }
+.field input, .field select {
+  width: 100%; padding: 9px 11px;
+  background: var(--white); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: var(--text);
+  outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.field input::placeholder { color: var(--faint); }
+.field input:focus, .field select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.10);
+}
+
+/* ==========================================================================
+   BUTTONS
+   ========================================================================== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 9px 16px;
+  border: none; border-radius: var(--radius-sm);
+  font-size: 13.5px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: all 0.18s;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; }
+.btn-blue  { background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
+.btn-blue:hover:not(:disabled) { background: #1d4ed8; box-shadow: 0 4px 14px rgba(37,99,235,0.35); transform: translateY(-1px); }
+.btn-green { background: var(--green); color: #fff; box-shadow: 0 2px 8px rgba(5,150,105,0.25); }
+.btn-green:hover:not(:disabled) { background: #047857; box-shadow: 0 4px 14px rgba(5,150,105,0.35); transform: translateY(-1px); }
+
+/* ==========================================================================
+   EMPLOYEE LIST
+   ========================================================================== */
+#employeeList { max-height: 210px; overflow-y: auto; }
+#employeeList::-webkit-scrollbar { width: 4px; }
+#employeeList::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.emp-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  transition: padding-left 0.18s;
+}
+.emp-row:hover { padding-left: 4px; }
+.emp-row:last-child { border-bottom: none; }
+.emp-av {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--indigo); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; flex-shrink: 0;
+  text-transform: uppercase;
+}
+.emp-info { flex: 1; min-width: 0; }
+.emp-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.emp-sub  { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.tag {
+  font-size: 10.5px; font-weight: 600; padding: 2px 8px;
+  border-radius: 999px; white-space: nowrap;
+}
+.tag-green  { background: var(--green-lt); color: var(--green); border: 1px solid var(--green-md); }
+.tag-amber  { background: var(--amber-lt); color: var(--amber); border: 1px solid rgba(217,119,6,0.3); }
+
+/* ==========================================================================
+   ENROLL STATUS
+   ========================================================================== */
+.enroll-box {
+  display: none; margin-top: 12px;
+  padding: 11px 13px; border-radius: var(--radius-sm);
+  font-size: 13px; align-items: center; gap: 9px;
+}
+.enroll-box.waiting { display:flex; background: var(--blue-lt); border: 1px solid var(--blue-md); color: var(--blue); }
+.enroll-box.success { display:flex; background: var(--green-lt); border: 1px solid var(--green-md); color: var(--green); }
+.enroll-box.error   { display:flex; background: var(--red-lt);   border: 1px solid var(--red-md);   color: var(--red);   }
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(37,99,235,0.2); border-top-color: var(--blue);
+  animation: spin 0.75s linear infinite; flex-shrink: 0;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.progress-track { height: 4px; background: var(--border); border-radius: 4px; margin-top: 10px; overflow:hidden; display:none; }
+.progress-fill  { height: 100%; background: var(--blue); border-radius: 4px; transition: width 1s linear; }
+
+/* ==========================================================================
+   ATTENDANCE TABLE AREA
+   ========================================================================== */
+.att-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px; flex-wrap: wrap; gap: 12px;
+}
+.att-header .left { display:flex; align-items:center; gap:10px; }
+.att-heading { font-size: 16px; font-weight: 700; color: var(--text); }
+.live-pill {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 10px; border-radius:999px;
+  background: var(--green-lt); border: 1px solid var(--green-md);
+  font-size: 11px; font-weight: 600; color: var(--green);
+}
+.live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pipBlink 1.2s infinite; }
+
+.search-wrap {
+  display:flex; align-items:center; gap:7px;
+  padding: 7px 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 13px;
+}
+.search-wrap input { background:none; border:none; outline:none; width:160px; font-size:13px; font-family:'DM Sans',sans-serif; color:var(--text); }
+.search-wrap input::placeholder { color: var(--faint); }
+
+.last-upd { font-size: 12px; color: var(--faint); }
+
+/* ==========================================================================
+   TABLE
+   ========================================================================== */
+.table-scroll { overflow-x: auto; }
+.table-scroll::-webkit-scrollbar { height: 4px; }
+.table-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+thead th {
+  text-align: left; padding: 9px 14px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted);
+  border-bottom: 2px solid var(--border);
+  background: var(--surface2);
+  white-space: nowrap;
+}
+thead th:first-child { border-radius: var(--radius-sm) 0 0 0; }
+thead th:last-child  { border-radius: 0 var(--radius-sm) 0 0; }
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.14s;
+  animation: fadeIn 0.35s ease both;
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+tbody tr:hover { background: var(--blue-lt); }
+tbody tr:last-child { border-bottom: none; }
+td { padding: 11px 14px; vertical-align: middle; }
+
+.cell-name { display:flex; align-items:center; gap:9px; }
+.row-av {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--indigo); color: #fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; flex-shrink:0; text-transform:uppercase;
+}
+.cell-name-text { font-weight: 600; }
+.cell-code { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px; }
+.cell-uid {
+  font-family: 'DM Mono', monospace; font-size: 12px;
+  color: var(--indigo);
+  background: var(--indigo-lt); border: 1px solid rgba(79,70,229,0.2);
+  padding: 3px 8px; border-radius: 4px; white-space: nowrap;
+}
+.badge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 10px; border-radius:999px;
+  font-size:11px; font-weight:700; white-space:nowrap;
+}
+.badge.in  { background:var(--green-lt); color:var(--green); border:1px solid var(--green-md); }
+.badge.out { background:var(--red-lt);   color:var(--red);   border:1px solid var(--red-md);   }
+.badge::before { content:''; display:inline-block; width:5px; height:5px; border-radius:50%; background:currentColor; }
+.cell-time { font-family:'DM Mono',monospace; font-size:12.5px; color:var(--muted); }
+
+.empty { text-align:center; padding:48px 20px; color:var(--muted); }
+.empty-icon { font-size:38px; margin-bottom:12px; }
+.empty p    { font-size:14px; }
+.empty small{ font-size:12px; color:var(--faint); margin-top:5px; display:block; }
+
+/* ==========================================================================
+   TOAST
+   ========================================================================== */
+#toasts {
+  position:fixed; bottom:20px; right:20px; z-index:9999;
+  display:flex; flex-direction:column-reverse; gap:8px;
+}
+.toast {
+  display:flex; align-items:center; gap:9px;
+  padding:11px 16px; border-radius:var(--radius-md);
+  font-size:13.5px; font-weight:500; min-width:240px;
+  box-shadow:var(--shadow-lg); animation:slideIn 0.3s cubic-bezier(.22,1,.36,1);
+  border: 1px solid transparent;
+}
+.toast.ok  { background:var(--green-lt); border-color:var(--green-md); color:var(--green); }
+.toast.err { background:var(--red-lt);   border-color:var(--red-md);   color:var(--red);   }
+.toast.inf { background:var(--blue-lt);  border-color:var(--blue-md);  color:var(--blue);  }
+@keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:none} }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <div class="nav-icon">&#128225;</div>
+      <div class="nav-title">RFID <span>Attendance</span></div>
+    </div>
+    <div class="nav-right">
+      <div class="status-chip offline" id="statusChip">
+        <div class="status-pip"></div>
+        <span id="statusLabel">Connecting</span>
+      </div>
+      <div class="clock-chip" id="clock">--:--:--</div>
+    </div>
+  </div>
+</nav>
+
+<div id="toasts"></div>
+
+<main class="page">
+
+  <!-- Page heading -->
+  <div class="page-head">
+    <h1>Dashboard</h1>
+    <div class="date-str" id="dateStr"></div>
+  </div>
+
+  <!-- KPI Row -->
+  <div class="stats-grid">
+    <div class="kpi" data-color="blue">
+      <div class="kpi-accent"></div>
+      <div class="kpi-header">
+        <div class="kpi-label">Total Employees</div>
+        <div class="kpi-icon">&#128100;</div>
+      </div>
+      <div class="kpi-value" id="kpiTotal">0</div>
+      <div class="kpi-sub">registered</div>
+    </div>
+    <div class="kpi" data-color="green">
+      <div class="kpi-accent"></div>
+      <div class="kpi-header">
+        <div class="kpi-label">Checked In</div>
+        <div class="kpi-icon">&#9989;</div>
+      </div>
+      <div class="kpi-value" id="kpiIn">0</div>
+      <div class="kpi-sub">currently inside</div>
+    </div>
+    <div class="kpi" data-color="red">
+      <div class="kpi-accent"></div>
+      <div class="kpi-header">
+        <div class="kpi-label">Checked Out</div>
+        <div class="kpi-icon">&#128682;</div>
+      </div>
+      <div class="kpi-value" id="kpiOut">0</div>
+      <div class="kpi-sub">left for the day</div>
+    </div>
+    <div class="kpi" data-color="amber">
+      <div class="kpi-accent"></div>
+      <div class="kpi-header">
+        <div class="kpi-label">Total Scans</div>
+        <div class="kpi-icon">&#128203;</div>
+      </div>
+      <div class="kpi-value" id="kpiScans">0</div>
+      <div class="kpi-sub">IN + OUT events today</div>
+    </div>
+  </div>
+
+  <!-- Content Grid -->
+  <div class="content-grid">
+
+    <!-- LEFT: Management panels -->
+    <div>
+
+      <!-- Add Employee -->
+      <div class="card">
+        <div class="card-title">
+          <div class="card-title-icon">&#43;</div>
+          Add Employee
+        </div>
+        <div class="field">
+          <label for="empName">Full Name</label>
+          <input id="empName" placeholder="e.g. Rahul Sharma" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="empCode">Employee Code</label>
+          <input id="empCode" placeholder="e.g. EMP001" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="empDept">Department <span style="color:var(--faint);font-weight:400">(optional)</span></label>
+          <input id="empDept" placeholder="e.g. Operations" autocomplete="off">
+        </div>
+        <button class="btn btn-blue" id="addBtn" onclick="addEmployee()">
+          &#43;&nbsp; Add Employee
+        </button>
+      </div>
+
+      <!-- Employee List -->
+      <div class="card">
+        <div class="card-title">
+          <div class="card-title-icon" style="background:var(--green-lt);color:var(--green)">&#128100;</div>
+          Employees
+        </div>
+        <div id="employeeList">
+          <div class="empty"><div class="empty-icon">&#128100;</div><p>No employees yet.</p><small>Add one above.</small></div>
+        </div>
+      </div>
+
+      <!-- Enroll Card -->
+      <div class="card">
+        <div class="card-title">
+          <div class="card-title-icon" style="background:var(--amber-lt);color:var(--amber)">&#128273;</div>
+          Link RFID Card to Employee
+        </div>
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;line-height:1.65;">
+          Select a person &#8594; click <strong>Start</strong> &#8594; tap their physical RFID card on the reader within 30 seconds. The card's UID will be linked to that person in the database.
+        </p>
+        <div class="field">
+          <label for="enrollSel">Select Employee</label>
+          <select id="enrollSel"></select>
+        </div>
+        <button class="btn btn-green" id="enrollBtn" onclick="startEnroll()">
+          &#127919;&nbsp; Start Enrollment
+        </button>
+        <div class="enroll-box" id="enrollBox"></div>
+        <div class="progress-track" id="progTrack">
+          <div class="progress-fill" id="progFill" style="width:100%"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Attendance Table -->
+    <div class="card">
+      <div class="att-header">
+        <div class="left">
+          <div class="att-heading">Today&rsquo;s Attendance</div>
+          <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div class="search-wrap">
+            <span style="color:var(--faint)">&#128269;</span>
+            <input placeholder="Search name&hellip;" oninput="filterTable()" id="searchQ">
+          </div>
+          <div class="last-upd" id="lastUpd"></div>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Code</th>
+              <th>Card UID</th>
+              <th>Status</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="attBody">
+            <tr><td colspan="5">
+              <div class="empty"><div class="empty-icon">&#9203;</div><p>No scans yet today.</p><small>Refreshes every 5 seconds automatically.</small></div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+/* ---- EDIT THIS if needed ---- */
+const BACKEND_URL = "http://localhost:8000";
+/* ----------------------------- */
+
+let employees = [];
+let attendance = [];
+let enrollTimer = null;
+
+// Date string
+(function() {
+  const d = new Date();
+  document.getElementById('dateStr').textContent =
+    d.toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+})();
+
+// Clock
+function tickClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(tickClock, 1000); tickClock();
+
+// Status chip
+function setStatus(ok) {
+  const chip = document.getElementById('statusChip');
+  const lbl  = document.getElementById('statusLabel');
+  chip.className = 'status-chip ' + (ok ? 'online' : 'offline');
+  lbl.textContent = ok ? 'Backend Online' : 'Backend Offline';
+}
+
+// Toast
+function toast(msg, type) {
+  const icons = {ok:'&#9989;', err:'&#10060;', inf:'&#8505;&#65039;'};
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type||'inf');
+  el.innerHTML = '<span>' + (icons[type]||'') + '</span><span>' + msg + '</span>';
+  document.getElementById('toasts').prepend(el);
+  setTimeout(() => el.remove(), 3800);
+}
+
+// Number animation
+function animNum(id, target) {
+  const el = document.getElementById(id);
+  const from = parseInt(el.textContent) || 0;
+  if (from === target) return;
+  let i = 0;
+  const t = setInterval(() => {
+    i++;
+    el.textContent = Math.round(from + (target - from) * i / 20);
+    if (i >= 20) { el.textContent = target; clearInterval(t); }
+  }, 16);
+}
+
+function initials(name) {
+  return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+
+// ── Employees ─────────────────────────────────────
+async function loadEmployees() {
+  try {
+    const r = await fetch(BACKEND_URL + '/employees');
+    if (!r.ok) throw 0;
+    employees = await r.json();
+    setStatus(true);
+    renderEmployees();
+    renderEnrollSelect();
+    animNum('kpiTotal', employees.length);
+  } catch { setStatus(false); }
+}
+
+function renderEmployees() {
+  const el = document.getElementById('employeeList');
+  if (!employees.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">&#128100;</div><p>No employees yet.</p><small>Add one above.</small></div>';
+    return;
+  }
+  el.innerHTML = employees.map(function(e) {
+    return '<div class="emp-row">' +
+      '<div class="emp-av">' + initials(e.name) + '</div>' +
+      '<div class="emp-info">' +
+        '<div class="emp-name">' + e.name + '</div>' +
+        '<div class="emp-sub">' + e.employee_code + (e.department ? ' &middot; ' + e.department : '') + '</div>' +
+      '</div>' +
+      '<span class="tag ' + (e.has_card ? 'tag-green' : 'tag-amber') + '">' +
+        (e.has_card ? '&#10003; Card linked' : '&#9888; No card') +
+      '</span>' +
+      '</div>';
+  }).join('');
+}
+
+function renderEnrollSelect() {
+  const sel = document.getElementById('enrollSel');
+  sel.innerHTML = employees.length
+    ? employees.map(function(e) { return '<option value="'+e.id+'">'+e.name+' ('+e.employee_code+')</option>'; }).join('')
+    : '<option disabled>&#8212; Add an employee first &#8212;</option>';
+}
+
+async function addEmployee() {
+  const name = document.getElementById('empName').value.trim();
+  const code = document.getElementById('empCode').value.trim();
+  const dept = document.getElementById('empDept').value.trim();
+  if (!name || !code) { toast('Name and code are required', 'err'); return; }
+  const btn = document.getElementById('addBtn');
+  btn.disabled = true; btn.textContent = 'Adding\u2026';
+  try {
+    const r = await fetch(BACKEND_URL + '/employees', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name, employee_code:code, department:dept})
+    });
+    if (!r.ok) {
+      let msg = 'Error';
+      try { msg = (await r.json()).detail || msg; } catch {}
+      toast(msg, 'err'); return;
+    }
+    document.getElementById('empName').value = '';
+    document.getElementById('empCode').value = '';
+    document.getElementById('empDept').value = '';
+    toast(name + ' added!', 'ok');
+    loadEmployees();
+  } catch { toast('Cannot reach backend', 'err'); }
+  finally { btn.disabled = false; btn.innerHTML = '&#43;&nbsp; Add Employee'; }
+}
+
+// ── Enrollment ────────────────────────────────────
+async function startEnroll() {
+  const id = parseInt(document.getElementById('enrollSel').value);
+  if (!id) { toast('Select an employee first', 'err'); return; }
+  const btn = document.getElementById('enrollBtn');
+  btn.disabled = true;
+  try {
+    await fetch(BACKEND_URL + '/enroll/start', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({employee_id: id})
+    });
+  } catch { toast('Cannot reach backend', 'err'); btn.disabled=false; return; }
+
+  const box  = document.getElementById('enrollBox');
+  const trk  = document.getElementById('progTrack');
+  const fill = document.getElementById('progFill');
+  let secs = 30;
+
+  box.className = 'enroll-box waiting';
+  box.innerHTML = '<div class="spinner"></div><span>Waiting for card tap&hellip; <strong>' + secs + 's</strong></span>';
+  trk.style.display = 'block'; fill.style.width = '100%';
+
+  if (enrollTimer) clearInterval(enrollTimer);
+  enrollTimer = setInterval(async function() {
+    secs--;
+    fill.style.width = ((secs/30)*100) + '%';
+    let d;
+    try { const rr = await fetch(BACKEND_URL+'/enroll/result'); d = await rr.json(); } catch { return; }
+    if (d.status === 'success') {
+      clearInterval(enrollTimer);
+      box.className = 'enroll-box success';
+      box.innerHTML = '&#10003; Card linked to <strong>' + d.employee_name + '</strong>';
+      trk.style.display = 'none'; btn.disabled = false;
+      toast('Card enrolled for ' + d.employee_name, 'ok');
+      loadEmployees(); return;
+    }
+    if (secs <= 0) {
+      clearInterval(enrollTimer);
+      box.className = 'enroll-box error';
+      box.innerHTML = '&#8987; Timed out &mdash; no card detected. Try again.';
+      trk.style.display = 'none'; btn.disabled = false; return;
+    }
+    box.innerHTML = '<div class="spinner"></div><span>Waiting for card tap&hellip; <strong>' + secs + 's</strong></span>';
+  }, 1000);
+}
+
+// ── Attendance ────────────────────────────────────
+async function loadAttendance() {
+  try {
+    const r = await fetch(BACKEND_URL + '/attendance/today');
+    if (!r.ok) throw 0;
+    attendance = await r.json();
+    setStatus(true);
+    updateKPIs();
+    filterTable();
+    document.getElementById('lastUpd').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch { setStatus(false); }
+}
+
+function updateKPIs() {
+  const statusMap = {};
+  attendance.slice().reverse().forEach(function(r) { statusMap[r.employee_code] = r.scan_type; });
+  const inN  = Object.values(statusMap).filter(function(v){return v==='IN';}).length;
+  const outN = Object.values(statusMap).filter(function(v){return v==='OUT';}).length;
+  animNum('kpiIn',    inN);
+  animNum('kpiOut',   outN);
+  animNum('kpiScans', attendance.length);
+}
+
+function filterTable() {
+  const q = (document.getElementById('searchQ').value || '').toLowerCase();
+  renderTable(q ? attendance.filter(function(r){return r.employee_name.toLowerCase().includes(q);}) : attendance);
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('attBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="empty-icon">&#128269;</div><p>No scans yet today.</p><small>The table refreshes every 5 seconds.</small></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(r, i) {
+    return '<tr style="animation-delay:' + (i*25) + 'ms">' +
+      '<td><div class="cell-name"><div class="row-av">'+initials(r.employee_name)+'</div><span class="cell-name-text">'+r.employee_name+'</span></div></td>' +
+      '<td><span class="cell-code">'+r.employee_code+'</span></td>' +
+      '<td><span class="cell-uid">'+r.card_uid+'</span></td>' +
+      '<td><span class="badge '+r.scan_type.toLowerCase()+'">'+r.scan_type+'</span></td>' +
+      '<td><span class="cell-time">'+r.scan_time+'</span></td>' +
+      '</tr>';
+  }).join('');
+}
+
+loadEmployees();
+loadAttendance();
+setInterval(loadAttendance,  5000);
+setInterval(loadEmployees,  15000);
+</script>
+</body>
+</html>
