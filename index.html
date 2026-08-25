@@ -420,6 +420,20 @@ td { padding: 11px 14px; vertical-align: middle; }
 .toast.err { background:var(--red-lt);   border-color:var(--red-md);   color:var(--red);   }
 .toast.inf { background:var(--blue-lt);  border-color:var(--blue-md);  color:var(--blue);  }
 @keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:none} }
+
+/* USB Reader Button */
+.btn-usb {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text2);
+  cursor: pointer; transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+.btn-usb:hover { border-color: var(--blue); color: var(--blue); }
+.btn-usb.connected { background: var(--green-lt); border-color: var(--green-md); color: var(--green); }
+.btn-usb.unsupported { opacity: 0.6; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -432,6 +446,10 @@ td { padding: 11px 14px; vertical-align: middle; }
       <div class="nav-title">RFID <span>Attendance</span></div>
     </div>
     <div class="nav-right">
+      <button id="usbBtn" class="btn-usb" onclick="toggleUsbSerial()" title="Connect to ESP32 over USB Serial">
+        <span id="usbIcon">🔌</span>
+        <span id="usbLabel">Connect USB Reader</span>
+      </button>
       <div class="status-chip offline" id="statusChip">
         <div class="status-pip"></div>
         <span id="statusLabel">Connecting</span>
@@ -594,13 +612,15 @@ td { padding: 11px 14px; vertical-align: middle; }
   </div>
 </main>
 
-<!-- Load backend URL from config.js (edit that file, not this one) -->
+<!-- Load backend URL and Web Serial Service -->
 <script src="config.js"></script>
+<script src="rfidSerialService.js"></script>
 <script>
 
 let employees = [];
 let attendance = [];
 let enrollTimer = null;
+let activeEnrollEmployeeId = null;
 
 // Date string
 (function() {
@@ -649,6 +669,150 @@ function animNum(id, target) {
 
 function initials(name) {
   return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+
+// ── Web Serial Initialization & Event Wiring ──────
+if (window.rfidSerial) {
+  if (!window.rfidSerial.isSupported()) {
+    const btn = document.getElementById('usbBtn');
+    if (btn) {
+      btn.classList.add('unsupported');
+      btn.title = 'Web Serial is not supported in this browser. Please use Chrome or Edge.';
+      btn.onclick = () => toast('Web Serial is not supported in this browser. Please use a compatible Chromium-based browser such as Chrome or Edge.', 'err');
+    }
+  }
+
+  window.rfidSerial.onStatusChange((connected, msg) => {
+    const btn = document.getElementById('usbBtn');
+    const icon = document.getElementById('usbIcon');
+    const label = document.getElementById('usbLabel');
+    if (btn) {
+      if (connected) {
+        btn.classList.add('connected');
+        if (icon) icon.textContent = '🟢';
+        if (label) label.textContent = 'USB Reader: Connected';
+        toast('USB RFID Reader connected successfully at 115200 baud!', 'ok');
+      } else {
+        btn.classList.remove('connected');
+        if (icon) icon.textContent = '🔌';
+        if (label) label.textContent = 'Connect USB Reader';
+        if (msg && msg !== 'Disconnected') {
+          toast(msg, 'inf');
+        }
+      }
+    }
+  });
+
+  window.rfidSerial.onUid(async (uid) => {
+    handleScannedUid(uid);
+  });
+}
+
+async function toggleUsbSerial() {
+  if (!window.rfidSerial.isSupported()) {
+    toast('Web Serial is not supported in this browser. Please use a compatible Chromium-based browser such as Chrome or Edge.', 'err');
+    return;
+  }
+  if (window.rfidSerial.isConnected) {
+    await window.rfidSerial.disconnect();
+    toast('USB RFID Reader disconnected', 'inf');
+  } else {
+    try {
+      const connected = await window.rfidSerial.connect();
+      if (!connected) {
+        toast('Port selection was cancelled', 'inf');
+      }
+    } catch (err) {
+      console.error('[WebSerial] Connection failed:', err);
+      toast('Connection error: ' + (err.message || 'Could not open serial port'), 'err');
+    }
+  }
+}
+
+// ── Unified Scanned UID Handler (Web Serial -> API) ─
+async function handleScannedUid(uid) {
+  if (!uid || typeof uid !== 'string') return;
+  const cleanUid = uid.trim().toUpperCase();
+
+  // 1. Enrollment Mode Active
+  if (activeEnrollEmployeeId) {
+    const empId = activeEnrollEmployeeId;
+    const box = document.getElementById('enrollBox');
+    const trk = document.getElementById('progTrack');
+    const btn = document.getElementById('enrollBtn');
+
+    if (box) {
+      box.className = 'enroll-box waiting';
+      box.innerHTML = `<div class="spinner"></div><span>Card detected: <strong>${cleanUid}</strong>. Linking to employee...</span>`;
+    }
+
+    try {
+      const res = await fetch(BACKEND_URL + '/enroll/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: empId, uid: cleanUid })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        if (enrollTimer) clearInterval(enrollTimer);
+        activeEnrollEmployeeId = null;
+        if (box) {
+          box.className = 'enroll-box success';
+          box.innerHTML = `&#10003; Card <strong>${cleanUid}</strong> linked to <strong>${data.employee_name}</strong>!`;
+        }
+        if (trk) trk.style.display = 'none';
+        if (btn) btn.disabled = false;
+        toast(`RFID Card ${cleanUid} linked to ${data.employee_name}!`, 'ok');
+        loadEmployees();
+      } else {
+        const errMsg = data.message || data.detail || 'Could not link RFID card';
+        if (box) {
+          box.className = 'enroll-box error';
+          box.innerHTML = `&#9888; ${errMsg}`;
+        }
+        toast(errMsg, 'err');
+      }
+    } catch (err) {
+      console.error('[Dashboard] Enrollment failed:', err);
+      if (box) {
+        box.className = 'enroll-box error';
+        box.innerHTML = `&#9888; Error communicating with backend server`;
+      }
+      toast('Backend communication error', 'err');
+    }
+    return;
+  }
+
+  // 2. Normal Attendance Scan Mode
+  try {
+    const res = await fetch(BACKEND_URL + '/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: cleanUid })
+    });
+
+    const data = await res.json();
+
+    if (data.result === 'in') {
+      toast(`Welcome, ${data.employee_name} (Checked IN) · ${cleanUid}`, 'ok');
+      loadAttendance();
+    } else if (data.result === 'out') {
+      toast(`Goodbye, ${data.employee_name} (Checked OUT) · ${cleanUid}`, 'inf');
+      loadAttendance();
+    } else if (data.result === 'unknown') {
+      toast(`Unknown Card: ${cleanUid} (Card not registered in system)`, 'err');
+    } else if (data.result === 'duplicate') {
+      toast(`Card ${cleanUid} was already scanned. Please wait a moment.`, 'inf');
+    } else {
+      toast(`Scan recorded: ${cleanUid}`, 'inf');
+      loadAttendance();
+    }
+  } catch (err) {
+    console.error('[Dashboard] Attendance scan error:', err);
+    toast('Scan communication error: ' + (err.message || 'Cannot reach backend'), 'err');
+  }
 }
 
 // ── Employees ─────────────────────────────────────
@@ -721,14 +885,32 @@ async function addEmployee() {
 async function startEnroll() {
   const id = parseInt(document.getElementById('enrollSel').value);
   if (!id) { toast('Select an employee first', 'err'); return; }
+
+  // Ensure USB reader is connected or prompt user
+  if (window.rfidSerial && window.rfidSerial.isSupported() && !window.rfidSerial.isConnected) {
+    try {
+      const connected = await window.rfidSerial.connect();
+      if (!connected) {
+        toast('Connect the USB RFID Reader to scan card directly from browser', 'inf');
+      }
+    } catch (err) {
+      console.warn('[WebSerial] Auto-connect prompt error:', err);
+    }
+  }
+
+  activeEnrollEmployeeId = id;
   const btn = document.getElementById('enrollBtn');
   btn.disabled = true;
+
+  // Also arm backend enrollment state (supports both browser serial & wifi scan fallback)
   try {
     await fetch(BACKEND_URL + '/enroll/start', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({employee_id: id})
     });
-  } catch { toast('Cannot reach backend', 'err'); btn.disabled=false; return; }
+  } catch (e) {
+    console.warn('[Backend] enroll/start error:', e);
+  }
 
   const box  = document.getElementById('enrollBox');
   const trk  = document.getElementById('progTrack');
@@ -743,23 +925,32 @@ async function startEnroll() {
   enrollTimer = setInterval(async function() {
     secs--;
     fill.style.width = ((secs/30)*100) + '%';
-    let d;
-    try { const rr = await fetch(BACKEND_URL+'/enroll/result'); d = await rr.json(); } catch { return; }
-    if (d.status === 'success') {
-      clearInterval(enrollTimer);
-      box.className = 'enroll-box success';
-      box.innerHTML = '&#10003; Card linked to <strong>' + d.employee_name + '</strong>';
-      trk.style.display = 'none'; btn.disabled = false;
-      toast('Card enrolled for ' + d.employee_name, 'ok');
-      loadEmployees(); return;
-    }
+
+    // Polling fallback in case WiFi scanner is also used
+    try {
+      const rr = await fetch(BACKEND_URL+'/enroll/result');
+      const d = await rr.json();
+      if (d.status === 'success') {
+        clearInterval(enrollTimer);
+        activeEnrollEmployeeId = null;
+        box.className = 'enroll-box success';
+        box.innerHTML = '&#10003; Card linked to <strong>' + d.employee_name + '</strong>';
+        trk.style.display = 'none'; btn.disabled = false;
+        toast('Card enrolled for ' + d.employee_name, 'ok');
+        loadEmployees(); return;
+      }
+    } catch (_) {}
+
     if (secs <= 0) {
       clearInterval(enrollTimer);
+      activeEnrollEmployeeId = null;
       box.className = 'enroll-box error';
       box.innerHTML = '&#8987; Timed out &mdash; no card detected. Try again.';
       trk.style.display = 'none'; btn.disabled = false; return;
     }
-    box.innerHTML = '<div class="spinner"></div><span>Waiting for card tap&hellip; <strong>' + secs + 's</strong></span>';
+    if (activeEnrollEmployeeId) {
+      box.innerHTML = '<div class="spinner"></div><span>Waiting for card tap&hellip; <strong>' + secs + 's</strong></span>';
+    }
   }, 1000);
 }
 
