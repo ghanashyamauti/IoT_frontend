@@ -1,6 +1,46 @@
 {
   "rewrites": [
     {
+      "source": "/IoT-Attendace/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/IoT-Attendace/fonts/:path*",
+      "destination": "/fonts/:path*"
+    },
+    {
+      "source": "/IoT-Attendace/shakham_logo.png",
+      "destination": "/shakham_logo.png"
+    },
+    {
+      "source": "/IoT-Attendace/favicon.png",
+      "destination": "/favicon.png"
+    },
+    {
+      "source": "/IoT-Attendace/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/IoT-Attendance/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/IoT-Attendance/fonts/:path*",
+      "destination": "/fonts/:path*"
+    },
+    {
+      "source": "/IoT-Attendance/shakham_logo.png",
+      "destination": "/shakham_logo.png"
+    },
+    {
+      "source": "/IoT-Attendance/favicon.png",
+      "destination": "/favicon.png"
+    },
+    {
+      "source": "/IoT-Attendance/(.*)",
+      "destination": "/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
