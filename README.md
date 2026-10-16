@@ -12,7 +12,7 @@ A modern, high-performance responsive web dashboard for real-time employee atten
 - **PDF Report Generation**: Instant client-side branded PDF downloads with company logos, status summaries, and detailed tables using `html2canvas` and `jspdf`.
 - **RFID Card Enrollment**: Step-by-step card linking supporting both Web Serial USB readers and network-armed ESP32 readers.
 - **Modern Responsive Design**: Fluid typography, dark/light theme switching, compact mobile KPI grids, and zero layout shift.
-- **Configurable Routing**: Dynamic base path support (e.g. `/IoT-Attendace/`) loaded strictly from environment variables without hardcoded URLs.
+- **Configurable Routing**: Dynamic base path support (e.g. `/IoT-Attendance/`) loaded strictly from environment variables without hardcoded URLs.
 
 ---
 
@@ -51,14 +51,14 @@ cp .env.example .env
 
 ```env
 VITE_BACKEND_URL=http://localhost:8000
-VITE_BASE_PATH=/IoT-Attendace/
+VITE_BASE_PATH=/IoT-Attendance/
 ```
 
 ### 4. Run Development Server
 ```bash
 npm run dev
 ```
-Open your browser at `http://localhost:5173/IoT-Attendace/`.
+Open your browser at `http://localhost:5173/IoT-Attendance/`.
 
 ### 5. Build for Production
 ```bash
