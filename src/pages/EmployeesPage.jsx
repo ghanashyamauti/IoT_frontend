@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Trash2, CreditCard, XCircle } from 'lucide-react';
+import { Pencil, Trash2, CreditCard, Mail } from 'lucide-react';
 import { initials } from '../utils';
 import * as api from '../api';
 
@@ -8,6 +8,7 @@ export default function EmployeesPage({ toast, employees, loadEmployees }) {
   const [editName, setEditName] = useState('');
   const [editCode, setEditCode] = useState('');
   const [editDept, setEditDept] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -16,6 +17,7 @@ export default function EmployeesPage({ toast, employees, loadEmployees }) {
     setEditName(emp.name);
     setEditCode(emp.employee_code);
     setEditDept(emp.department || '');
+    setEditEmail(emp.email || '');
   }
 
   async function handleSaveEdit() {
@@ -29,6 +31,7 @@ export default function EmployeesPage({ toast, employees, loadEmployees }) {
         name: editName.trim(),
         employee_code: editCode.trim(),
         department: editDept.trim(),
+        email: editEmail.trim(),
       });
       toast(`${editName.trim()} updated!`, 'ok');
       setEditModal(null);
@@ -65,7 +68,9 @@ export default function EmployeesPage({ toast, employees, loadEmployees }) {
   const filtered = search
     ? employees.filter(e =>
         e.name.toLowerCase().includes(search.toLowerCase()) ||
-        e.employee_code.toLowerCase().includes(search.toLowerCase())
+        e.employee_code.toLowerCase().includes(search.toLowerCase()) ||
+        (e.department && e.department.toLowerCase().includes(search.toLowerCase())) ||
+        (e.email && e.email.toLowerCase().includes(search.toLowerCase()))
       )
     : employees;
 
@@ -119,13 +124,14 @@ export default function EmployeesPage({ toast, employees, loadEmployees }) {
                 <th>Employee</th>
                 <th>Code</th>
                 <th>Department</th>
+                <th>Email Address</th>
                 <th>Card Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan="5">
+                <tr><td colSpan="6">
                   <div className="empty-state">
                     <div className="icon">👥</div>
                     <p>No employees found.</p>
@@ -141,6 +147,16 @@ export default function EmployeesPage({ toast, employees, loadEmployees }) {
                   </td>
                   <td><span className="cell-code">{emp.employee_code}</span></td>
                   <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>{emp.department || '—'}</td>
+                  <td style={{ fontSize: 13 }}>
+                    {emp.email ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--accent)' }}>
+                        <Mail size={13} />
+                        {emp.email}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-faint)' }}>—</span>
+                    )}
+                  </td>
                   <td>
                     <span className={`tag ${emp.has_card ? 'tag-green' : 'tag-amber'}`}>
                       {emp.has_card ? '✓ Card linked' : '⚠ No card'}
@@ -184,6 +200,15 @@ export default function EmployeesPage({ toast, employees, loadEmployees }) {
             <div className="field">
               <label>Department</label>
               <input value={editDept} onChange={e => setEditDept(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Email Address <span style={{color:'var(--text-faint)', fontWeight:400}}>(for attendance alert emails)</span></label>
+              <input
+                type="email"
+                value={editEmail}
+                onChange={e => setEditEmail(e.target.value)}
+                placeholder="e.g. rahul@shakham.com"
+              />
             </div>
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={() => setEditModal(null)}>Cancel</button>

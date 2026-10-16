@@ -8,11 +8,13 @@ export default function TodayPage({ toast, employees, loadEmployees, rfidSerial 
   const [attendance, setAttendance] = useState([]);
   const [search, setSearch] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
+  const [activeView, setActiveView] = useState('attendance'); // 'attendance' | 'manage'
 
   // Add employee form
   const [empName, setEmpName] = useState('');
   const [empCode, setEmpCode] = useState('');
   const [empDept, setEmpDept] = useState('');
+  const [empEmail, setEmpEmail] = useState('');
   const [adding, setAdding] = useState(false);
 
   // Enrollment state
@@ -36,10 +38,10 @@ export default function TodayPage({ toast, employees, loadEmployees, rfidSerial 
   useInterval(loadAttendance, 5000);
 
   // ── KPIs ──
-  const statusMap = {};
-  [...attendance].reverse().forEach(r => { statusMap[r.employee_code] = r.scan_type; });
-  const checkedIn  = Object.values(statusMap).filter(v => v === 'IN').length;
-  const checkedOut = Object.values(statusMap).filter(v => v === 'OUT').length;
+  const presentCodes = new Set(attendance.filter(r => r.scan_type === 'IN').map(r => r.employee_code));
+  const checkedIn = presentCodes.size;
+  const pendingCount = Math.max(0, employees.length - checkedIn);
+  const attendanceRate = employees.length > 0 ? Math.round((checkedIn / employees.length) * 100) : 0;
 
   // ── Add Employee ──
   async function handleAddEmployee(e) {
@@ -47,9 +49,14 @@ export default function TodayPage({ toast, employees, loadEmployees, rfidSerial 
     if (!empName.trim() || !empCode.trim()) { toast('Name and code are required', 'err'); return; }
     setAdding(true);
     try {
-      await api.addEmployee({ name: empName.trim(), employee_code: empCode.trim(), department: empDept.trim() });
+      await api.addEmployee({
+        name: empName.trim(),
+        employee_code: empCode.trim(),
+        department: empDept.trim(),
+        email: empEmail.trim(),
+      });
       toast(`${empName.trim()} added!`, 'ok');
-      setEmpName(''); setEmpCode(''); setEmpDept('');
+      setEmpName(''); setEmpCode(''); setEmpDept(''); setEmpEmail('');
       loadEmployees();
     } catch (err) { toast(err.message, 'err'); }
     finally { setAdding(false); }
@@ -175,38 +182,58 @@ export default function TodayPage({ toast, employees, loadEmployees, rfidSerial 
             <div className="kpi-icon">👤</div>
           </div>
           <div className="kpi-value">{employees.length}</div>
-          <div className="kpi-sub">registered</div>
+          <div className="kpi-sub">registered staff</div>
         </div>
         <div className="kpi" data-color="green">
           <div className="kpi-header">
-            <div className="kpi-label">Checked In</div>
+            <div className="kpi-label">Present Today</div>
             <div className="kpi-icon">✅</div>
           </div>
           <div className="kpi-value">{checkedIn}</div>
-          <div className="kpi-sub">currently inside</div>
-        </div>
-        <div className="kpi" data-color="red">
-          <div className="kpi-header">
-            <div className="kpi-label">Checked Out</div>
-            <div className="kpi-icon">🚪</div>
-          </div>
-          <div className="kpi-value">{checkedOut}</div>
-          <div className="kpi-sub">left for the day</div>
+          <div className="kpi-sub">checked in</div>
         </div>
         <div className="kpi" data-color="amber">
           <div className="kpi-header">
-            <div className="kpi-label">Total Scans</div>
-            <div className="kpi-icon">📋</div>
+            <div className="kpi-label">Pending</div>
+            <div className="kpi-icon">⏳</div>
           </div>
-          <div className="kpi-value">{attendance.length}</div>
-          <div className="kpi-sub">IN + OUT events today</div>
+          <div className="kpi-value">{pendingCount}</div>
+          <div className="kpi-sub">not marked yet</div>
         </div>
+        <div className="kpi" data-color="purple">
+          <div className="kpi-header">
+            <div className="kpi-label">Attendance Rate</div>
+            <div className="kpi-icon">📊</div>
+          </div>
+          <div className="kpi-value">{attendanceRate}%</div>
+          <div className="kpi-sub">completion today</div>
+        </div>
+      </div>
+
+      {/* Mobile Tab Switcher */}
+      <div className="today-mobile-tabs">
+        <button
+          type="button"
+          className={`today-tab-btn ${activeView === 'attendance' ? 'active' : ''}`}
+          onClick={() => setActiveView('attendance')}
+        >
+          <span>📋 Live Attendance</span>
+          <span className="today-tab-badge">{attendance.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`today-tab-btn ${activeView === 'manage' ? 'active' : ''}`}
+          onClick={() => setActiveView('manage')}
+        >
+          <span>👥 Manage & Enroll</span>
+          <span className="today-tab-badge">{employees.length}</span>
+        </button>
       </div>
 
       {/* Content Grid */}
       <div className="content-grid">
         {/* LEFT: Management Panels */}
-        <div>
+        <div className={`today-manage-col ${activeView === 'manage' ? 'show-mobile' : ''}`}>
           {/* Add Employee */}
           <div className="panel">
             <div className="panel-title">
@@ -225,6 +252,15 @@ export default function TodayPage({ toast, employees, loadEmployees, rfidSerial 
               <div className="field">
                 <label>Department <span style={{color:'var(--text-faint)', fontWeight:400}}>(optional)</span></label>
                 <input value={empDept} onChange={e => setEmpDept(e.target.value)} placeholder="e.g. Operations" />
+              </div>
+              <div className="field">
+                <label>Email Address <span style={{color:'var(--text-faint)', fontWeight:400}}>(for attendance alert emails)</span></label>
+                <input
+                  type="email"
+                  value={empEmail}
+                  onChange={e => setEmpEmail(e.target.value)}
+                  placeholder="e.g. rahul@shakham.com"
+                />
               </div>
               <button className="btn btn-primary btn-block" type="submit" disabled={adding}>
                 {adding ? 'Adding…' : '+ Add Employee'}
@@ -250,7 +286,9 @@ export default function TodayPage({ toast, employees, loadEmployees, rfidSerial 
                   <div className="avatar">{initials(e.name)}</div>
                   <div className="emp-info">
                     <div className="emp-name">{e.name}</div>
-                    <div className="emp-sub">{e.employee_code}{e.department ? ` · ${e.department}` : ''}</div>
+                    <div className="emp-sub">
+                      {e.employee_code}{e.department ? ` · ${e.department}` : ''}{e.email ? ` · ✉️ ${e.email}` : ''}
+                    </div>
                   </div>
                   <span className={`tag ${e.has_card ? 'tag-green' : 'tag-amber'}`}>
                     {e.has_card ? '✓ Card linked' : '⚠ No card'}
@@ -298,7 +336,7 @@ export default function TodayPage({ toast, employees, loadEmployees, rfidSerial 
         </div>
 
         {/* RIGHT: Attendance Table */}
-        <div className="panel">
+        <div className={`panel today-attendance-col ${activeView === 'attendance' ? 'show-mobile' : ''}`}>
           <div className="section-header">
             <div className="left">
               <div className="section-title">Today's Attendance</div>

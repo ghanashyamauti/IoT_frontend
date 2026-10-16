@@ -1,12 +1,14 @@
 import { useState, useCallback } from 'react';
-import { Download, BarChart3 } from 'lucide-react';
+import { Download, BarChart3, FileText } from 'lucide-react';
 import { initials, currentMonthStr } from '../utils';
 import * as api from '../api';
+import { downloadAttendancePdf } from '../reportPdfGenerator';
 
 export default function ReportsPage({ toast }) {
   const [month, setMonth] = useState(currentMonthStr());
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const loadSummary = useCallback(async (m) => {
     setLoading(true);
@@ -25,6 +27,19 @@ export default function ReportsPage({ toast }) {
     loadSummary(e.target.value);
   }
 
+  async function handleDownloadPdf() {
+    if (!summary) return;
+    setGeneratingPdf(true);
+    try {
+      await downloadAttendancePdf(summary, month);
+      toast('Attendance PDF report downloaded successfully!', 'ok');
+    } catch (err) {
+      toast('Failed to generate PDF: ' + err.message, 'err');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
+
   // Calculate overall stats
   const totalPresent = summary?.employees?.reduce((a, e) => a + e.days_present, 0) || 0;
   const avgAttendance = summary?.employees?.length
@@ -34,7 +49,7 @@ export default function ReportsPage({ toast }) {
   return (
     <>
       {/* Controls */}
-      <div style={{display:'flex', alignItems:'center', gap:16, marginBottom:24, flexWrap:'wrap'}}>
+      <div className="reports-controls" style={{display:'flex', alignItems:'center', gap:16, marginBottom:24, flexWrap:'wrap'}}>
         <div style={{display:'flex', alignItems:'center', gap:10}}>
           <BarChart3 size={18} style={{color:'var(--accent)'}} />
           <input
@@ -49,13 +64,27 @@ export default function ReportsPage({ toast }) {
           {loading ? 'Loading…' : 'Generate Report'}
         </button>
         {summary && (
-          <a
-            href={api.getExportUrl(summary.month_start, summary.month_end)}
-            className="btn btn-ghost"
-            download
-          >
-            <Download size={14} /> Export Full Month CSV
-          </a>
+          <>
+            <button
+              className="btn btn-primary"
+              onClick={handleDownloadPdf}
+              disabled={generatingPdf}
+              style={{
+                background: 'linear-gradient(135deg, #0d9488, #0284c7)',
+                color: '#fff',
+                boxShadow: '0 2px 10px rgba(13, 148, 136, 0.25)',
+              }}
+            >
+              <FileText size={15} /> {generatingPdf ? 'Generating PDF…' : 'Download PDF Report'}
+            </button>
+            <a
+              href={api.getExportUrl(summary.month_start, summary.month_end)}
+              className="btn btn-ghost"
+              download
+            >
+              <Download size={14} /> Export CSV
+            </a>
+          </>
         )}
       </div>
 
@@ -99,9 +128,19 @@ export default function ReportsPage({ toast }) {
 
           {/* Employee Summary Cards */}
           <div className="panel" style={{marginBottom:24}}>
-            <div className="panel-title">
-              <div className="panel-icon"><BarChart3 size={14} /></div>
-              Employee Attendance Summary
+            <div className="panel-title" style={{display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10}}>
+              <div style={{display:'flex', alignItems:'center', gap:10}}>
+                <div className="panel-icon"><BarChart3 size={14} /></div>
+                <span>Employee Attendance Summary</span>
+              </div>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={handleDownloadPdf}
+                disabled={generatingPdf}
+                title="Download formatted PDF report"
+              >
+                <FileText size={13} /> Download PDF
+              </button>
             </div>
 
             {/* Table View */}

@@ -1,11 +1,58 @@
 import { BACKEND_URL } from './config';
 
+// ── Auth Token Storage ────────────────────────────────────────────────
+const TOKEN_KEY = 'shakham_auth_token';
+const USER_KEY  = 'shakham_auth_user';
+
+export function getStoredToken() {
+  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || null;
+}
+
+export function getStoredUser() {
+  try {
+    const raw = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredAuth(token, user, remember = true) {
+  if (remember) {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } else {
+    sessionStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+}
+
+export function clearStoredAuth() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
+}
+
 // ── API helper ────────────────────────────────────────────────────────
 async function api(path, options = {}) {
+  const token = getStoredToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+
   const res = await fetch(`${BACKEND_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers,
   });
+
+  if (res.status === 401 && path !== '/auth/login') {
+    clearStoredAuth();
+    window.dispatchEvent(new Event('auth:unauthorized'));
+  }
+
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try { const j = await res.json(); detail = j.detail || detail; } catch {}
@@ -25,10 +72,18 @@ export async function fetchEmployee(id) {
   return res.json();
 }
 
-export async function addEmployee({ name, employee_code, department }) {
+export async function addEmployee({ name, employee_code, department, email }) {
   const res = await api('/employees', {
     method: 'POST',
-    body: JSON.stringify({ name, employee_code, department }),
+    body: JSON.stringify({ name, employee_code, department, email }),
+  });
+  return res.json();
+}
+
+export async function testEmail(target_email) {
+  const res = await api('/email/test', {
+    method: 'POST',
+    body: JSON.stringify({ target_email }),
   });
   return res.json();
 }
@@ -69,6 +124,27 @@ export async function fetchAttendanceSummary(month) {
 
 export function getExportUrl(from, to) {
   return `${BACKEND_URL}/attendance/export?from=${from}&to=${to}`;
+}
+
+export async function markDirectAttendance({ employee_id, date, time, scan_type, note }) {
+  const res = await api('/attendance/direct', {
+    method: 'POST',
+    body: JSON.stringify({ employee_id, date, time, scan_type, note }),
+  });
+  return res.json();
+}
+
+export async function fetchDateStatus(dateStr) {
+  const res = await api(`/attendance/direct/date?date=${dateStr}`);
+  return res.json();
+}
+
+export async function testSmtp(target_email = null) {
+  const res = await api('/email/test', {
+    method: 'POST',
+    body: JSON.stringify({ target_email }),
+  });
+  return res.json();
 }
 
 // ── Scan (from USB Web Serial) ────────────────────────────────────────
@@ -146,4 +222,32 @@ export async function checkBackendHealth() {
   } catch {
     return false;
   }
+}
+
+// ── Authentication ────────────────────────────────────────────────────
+export async function login(email, password, remember = true) {
+  const res = await api('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (data.access_token) {
+    setStoredAuth(data.access_token, data.user, remember);
+  }
+  return data;
+}
+
+export async function fetchMe() {
+  const res = await api('/auth/me');
+  return res.json();
+}
+
+export async function verifyToken() {
+  const res = await api('/auth/verify', { method: 'POST' });
+  return res.json();
+}
+
+export function logout() {
+  clearStoredAuth();
+  window.dispatchEvent(new Event('auth:logout'));
 }

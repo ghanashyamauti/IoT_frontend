@@ -1,25 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
-import { LayoutDashboard, CalendarDays, BarChart3, Users, Hand, Sun, Moon, Menu, X } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, BarChart3, Users, Sun, Moon, Menu, LogOut, UserCheck } from 'lucide-react';
 import { useClock, useTheme, useToast, useInterval } from './hooks';
 import { formatDate } from './utils';
 import { rfidSerial } from './rfidSerial';
 import * as api from './api';
 
-import TodayPage     from './pages/TodayPage';
-import HistoryPage   from './pages/HistoryPage';
-import ReportsPage   from './pages/ReportsPage';
-import EmployeesPage from './pages/EmployeesPage';
-import ManualPage    from './pages/ManualPage';
+import TodayPage            from './pages/TodayPage';
+import DirectAttendancePage from './pages/DirectAttendancePage';
+import HistoryPage          from './pages/HistoryPage';
+import ReportsPage          from './pages/ReportsPage';
+import EmployeesPage        from './pages/EmployeesPage';
+import LoginPage            from './pages/LoginPage';
+import { BASE_PATH }        from './config';
 
 const PAGES = [
-  { id: 'today',    label: 'Today',    icon: LayoutDashboard },
-  { id: 'manual',   label: 'Manual',   icon: Hand            },
-  { id: 'history',  label: 'History',  icon: CalendarDays    },
-  { id: 'reports',  label: 'Reports',  icon: BarChart3       },
-  { id: 'employees',label: 'Employees',icon: Users           },
+  { id: 'today',    label: 'Today',             icon: LayoutDashboard },
+  { id: 'direct',   label: 'Direct Attendance', icon: UserCheck       },
+  { id: 'history',  label: 'History',           icon: CalendarDays    },
+  { id: 'reports',  label: 'Reports',           icon: BarChart3       },
+  { id: 'employees',label: 'Employees',         icon: Users           },
 ];
 
 export default function App() {
+  const [token, setToken] = useState(() => api.getStoredToken());
+  const [currentUser, setCurrentUser] = useState(() => api.getStoredUser());
   const [page, setPage] = useState('today');
   const [backendOnline, setBackendOnline] = useState(false);
   const [employees, setEmployees] = useState([]);
@@ -27,13 +31,54 @@ export default function App() {
 
   // USB Serial state
   const [usbConnected, setUsbConnected] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const clock = useClock();
   const { theme, toggle: toggleTheme } = useTheme();
   const { toasts, addToast } = useToast();
 
+  // Ensure the browser URL reflects the configured BASE_PATH
+  useEffect(() => {
+    const cleanBase = BASE_PATH.replace(/\/+$/, '');
+    if (!window.location.pathname.startsWith(cleanBase)) {
+      window.history.replaceState(null, '', BASE_PATH);
+    }
+  }, []);
+
+  // Listen for logout / unauthorized events
+  useEffect(() => {
+    function handleLogout() {
+      setToken(null);
+      setCurrentUser(null);
+      setShowLogoutModal(false);
+      // Ensure the base path is preserved in browser address bar when logging out
+      const cleanBase = BASE_PATH.replace(/\/+$/, '');
+      if (!window.location.pathname.startsWith(cleanBase)) {
+        window.history.replaceState(null, '', BASE_PATH);
+      }
+    }
+    window.addEventListener('auth:logout', handleLogout);
+    window.addEventListener('auth:unauthorized', handleLogout);
+    return () => {
+      window.removeEventListener('auth:logout', handleLogout);
+      window.removeEventListener('auth:unauthorized', handleLogout);
+    };
+  }, []);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape' && showLogoutModal) {
+        setShowLogoutModal(false);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showLogoutModal]);
+
   // ── Load employees ──
   const loadEmployees = useCallback(async () => {
+    if (!token) return;
     try {
       const data = await api.fetchEmployees();
       setEmployees(data);
@@ -41,9 +86,13 @@ export default function App() {
     } catch {
       setBackendOnline(false);
     }
-  }, []);
+  }, [token]);
 
-  useEffect(() => { loadEmployees(); }, [loadEmployees]);
+  useEffect(() => {
+    if (token) {
+      loadEmployees();
+    }
+  }, [token, loadEmployees]);
   useInterval(loadEmployees, 15000);
 
   // ── Health check ──
@@ -54,7 +103,7 @@ export default function App() {
 
   // ── USB Serial ──
   useEffect(() => {
-    if (!rfidSerial.isSupported()) return;
+    if (!token || !rfidSerial.isSupported()) return;
 
     const unsub = rfidSerial.onStatusChange((connected, msg) => {
       setUsbConnected(connected);
@@ -66,7 +115,7 @@ export default function App() {
     });
 
     return unsub;
-  }, [addToast]);
+  }, [token, addToast]);
 
   async function toggleUsb() {
     if (!rfidSerial.isSupported()) {
@@ -86,6 +135,31 @@ export default function App() {
     }
   }
 
+  // ── Unauthenticated view: Render Login Page ──
+  if (!token) {
+    return (
+      <>
+        <LoginPage
+          theme={theme}
+          toggleTheme={toggleTheme}
+          onLoginSuccess={(user, newToken) => {
+            setToken(newToken);
+            setCurrentUser(user);
+            addToast(`Welcome, ${user.name || 'Admin'}!`, 'ok');
+          }}
+        />
+        <div className="toasts-container">
+          {toasts.map(t => (
+            <div key={t.id} className={`toast ${t.type}`}>
+              <span>{t.type === 'ok' ? '✅' : t.type === 'err' ? '❌' : 'ℹ️'}</span>
+              <span>{t.msg}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
+
   // ── Page title ──
   const pageMeta = PAGES.find(p => p.id === page);
 
@@ -95,19 +169,11 @@ export default function App() {
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
           <div className="sidebar-logo-wrap">
-            <img src="/shakham_logo.png" alt="Shakham" className="sidebar-logo-img" />
+            <img src={`${BASE_PATH}shakham_logo.png`} alt="Shakham" className="sidebar-logo-img" />
           </div>
           <div className="sidebar-brand-text">
             Shakham <span>Attendance</span>
           </div>
-          {/* Mobile close */}
-          <button
-            className="theme-toggle"
-            style={{ marginLeft: 'auto', display: 'none' }}
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X size={16} />
-          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -127,6 +193,26 @@ export default function App() {
         </nav>
 
         <div className="sidebar-footer">
+          {/* Admin User Card with Sign Out */}
+          <div className="sidebar-user-card">
+            <div className="sidebar-user-avatar">
+              {currentUser?.name
+                ? currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                : 'AD'}
+            </div>
+            <div className="sidebar-user-details">
+              <span className="sidebar-user-name">{currentUser?.name || 'Administrator'}</span>
+              <span className="sidebar-user-email">{currentUser?.email || 'Admin'}</span>
+            </div>
+            <button
+              className="sidebar-logout-btn"
+              onClick={() => setShowLogoutModal(true)}
+              title="Sign out of Admin session"
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
+
           <div className={`chip ${backendOnline ? 'online' : 'offline'}`}>
             <div className="chip-dot"></div>
             {backendOnline ? 'Backend Online' : 'Backend Offline'}
@@ -142,9 +228,9 @@ export default function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {/* Mobile hamburger */}
               <button
-                className="theme-toggle"
-                style={{ display: 'none' }}
+                className="theme-toggle hamburger-btn"
                 onClick={() => setSidebarOpen(true)}
+                aria-label="Open navigation"
               >
                 <Menu size={16} />
               </button>
@@ -170,39 +256,49 @@ export default function App() {
             <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
+
+            <button
+              className="btn-topbar-logout"
+              onClick={() => setShowLogoutModal(true)}
+              title="Sign out of Admin session"
+            >
+              <LogOut size={14} />
+              <span>Sign Out</span>
+            </button>
           </div>
         </header>
 
-        {/* Page Content */}
-        {page === 'today' && (
-          <TodayPage
-            toast={addToast}
-            employees={employees}
-            loadEmployees={loadEmployees}
-            rfidSerial={rfidSerial}
-          />
-        )}
-        {page === 'manual' && (
-          <ManualPage
-            employees={employees}
-            onRefreshEmployees={loadEmployees}
-            rfidSerial={rfidSerial}
-            toast={addToast}
-          />
-        )}
-        {page === 'history' && (
-          <HistoryPage toast={addToast} />
-        )}
-        {page === 'reports' && (
-          <ReportsPage toast={addToast} />
-        )}
-        {page === 'employees' && (
-          <EmployeesPage
-            toast={addToast}
-            employees={employees}
-            loadEmployees={loadEmployees}
-          />
-        )}
+        {/* Page Content Container */}
+        <div className="page-content">
+          {page === 'today' && (
+            <TodayPage
+              toast={addToast}
+              employees={employees}
+              loadEmployees={loadEmployees}
+              rfidSerial={rfidSerial}
+            />
+          )}
+          {page === 'direct' && (
+            <DirectAttendancePage
+              toast={addToast}
+              employees={employees}
+              loadEmployees={loadEmployees}
+            />
+          )}
+          {page === 'history' && (
+            <HistoryPage toast={addToast} />
+          )}
+          {page === 'reports' && (
+            <ReportsPage toast={addToast} />
+          )}
+          {page === 'employees' && (
+            <EmployeesPage
+              toast={addToast}
+              employees={employees}
+              loadEmployees={loadEmployees}
+            />
+          )}
+        </div>
       </main>
 
       {/* Toasts */}
@@ -218,22 +314,64 @@ export default function App() {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            zIndex: 199, display: 'none'
-          }}
+          className="sidebar-overlay"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      <style>{`
-        @media (max-width: 768px) {
-          .sidebar .sidebar-brand button { display: flex !important; }
-          .topbar-left button { display: flex !important; }
-          .topbar-right .btn-usb span:last-child { display: none; }
-          .sidebar + div { display: block !important; }
-        }
-      `}</style>
+      {/* Sign Out Confirmation Modal */}
+      {showLogoutModal && (
+        <div
+          className="modal-backdrop-blur"
+          onClick={() => setShowLogoutModal(false)}
+        >
+          <div
+            className="logout-confirm-dialog"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="logout-dialog-icon">
+              <LogOut size={26} />
+            </div>
+
+            <h3 className="logout-dialog-title">Sign Out of Admin Portal?</h3>
+            <p className="logout-dialog-desc">
+              Are you sure you want to end your current session? You will need to enter your admin credentials to log back in.
+            </p>
+
+            {currentUser?.email && (
+              <div className="logout-user-pill">
+                <span>Active account:</span>
+                <strong>{currentUser.email}</strong>
+              </div>
+            )}
+
+            <div className="logout-dialog-actions">
+              <button
+                type="button"
+                className="btn-cancel-logout"
+                onClick={() => setShowLogoutModal(false)}
+              >
+                Stay Logged In
+              </button>
+              <button
+                type="button"
+                className="btn-confirm-logout"
+                onClick={() => {
+                  setShowLogoutModal(false);
+                  api.logout();
+                  addToast('Signed out of Admin session', 'inf');
+                }}
+              >
+                <LogOut size={15} />
+                <span>Yes, Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -48,7 +48,7 @@ export default function HistoryPage({ toast }) {
   return (
     <>
       {/* Controls */}
-      <div style={{display:'flex', alignItems:'center', gap:16, marginBottom:24, flexWrap:'wrap'}}>
+      <div className="history-controls" style={{display:'flex', alignItems:'center', gap:16, marginBottom:24, flexWrap:'wrap'}}>
         <div style={{display:'flex', alignItems:'center', gap:10}}>
           <Calendar size={18} style={{color:'var(--accent)'}} />
           <input
@@ -116,6 +116,11 @@ export default function HistoryPage({ toast }) {
             <div className="section-header">
               <div className="left">
                 <div className="section-title">Attendance — {dateLabel}</div>
+                {scans.length > 0 && (
+                  <span className="badge" style={{background:'var(--bg-tertiary)', color:'var(--text-muted)', border:'1px solid var(--border-default)', fontSize:11}}>
+                    {filtered.length} {filtered.length === 1 ? 'record' : 'records'}
+                  </span>
+                )}
               </div>
               <div className="search-input">
                 <Search size={16} />
